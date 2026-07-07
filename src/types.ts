@@ -34,9 +34,17 @@ export interface Category {
   color: string;
 }
 
+/**
+ * How challenging a level is, derived from its number: levels ending in 5 are
+ * medium, levels ending in 0 are hard, everything else is easy. Harder tiers
+ * shorten the question timers.
+ */
+export type LevelTier = 'easy' | 'medium' | 'hard';
+
 export interface Level {
   /** 1-based level number, also its position along the map path. */
   id: number;
+  tier: LevelTier;
   questionIds: string[];
 }
 
@@ -56,4 +64,6 @@ export interface Progress {
   unlockedLevel: number;
   /** Stars earned per completed level. */
   stars: LevelStars;
+  /** Best points earned per completed level. */
+  points: Record<number, number>;
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import type { Question } from '../../types';
 import { contentLocale, hintLocale, t } from '../../i18n/config';
-import { ui } from '../../i18n/ui';
+import { useLocale } from '../../i18n/LocaleContext';
 import { SpeakerButton } from './SpeakerButton';
 import { AnswerOption } from './AnswerOption';
 
@@ -14,6 +14,7 @@ interface QuestionCardProps {
 
 export function QuestionCard({ question, answeredOptionId, onAnswer }: QuestionCardProps) {
   const [showHint, setShowHint] = useState(false);
+  const { ui } = useLocale();
   const promptText = t(question.prompt, contentLocale);
   const hintText = t(question.prompt, hintLocale);
   const answered = answeredOptionId !== null;

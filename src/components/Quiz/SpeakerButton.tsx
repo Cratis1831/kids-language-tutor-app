@@ -1,7 +1,7 @@
 import { Volume2 } from 'lucide-react';
 import type { Locale } from '../../types';
 import { useSpeech } from '../../hooks/useSpeech';
-import { ui } from '../../i18n/ui';
+import { useLocale } from '../../i18n/LocaleContext';
 
 interface SpeakerButtonProps {
   text: string;
@@ -13,6 +13,7 @@ interface SpeakerButtonProps {
 /** A round button that reads its text aloud in the content language. */
 export function SpeakerButton({ text, locale, size = 22, className = '' }: SpeakerButtonProps) {
   const { supported, speak } = useSpeech();
+  const { ui } = useLocale();
   if (!supported) return null;
   return (
     <button

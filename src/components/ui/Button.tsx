@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { sfx } from '../../audio/audio';
 
 type Variant = 'primary' | 'accent' | 'soft' | 'sun';
 
@@ -14,7 +15,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
-export function Button({ variant = 'primary', className = '', children, ...rest }: ButtonProps) {
+export function Button({ variant = 'primary', className = '', children, onClick, ...rest }: ButtonProps) {
   return (
     <button
       className={[
@@ -24,6 +25,10 @@ export function Button({ variant = 'primary', className = '', children, ...rest 
         variants[variant],
         className,
       ].join(' ')}
+      onClick={(e) => {
+        sfx.click();
+        onClick?.(e);
+      }}
       {...rest}
     >
       {children}

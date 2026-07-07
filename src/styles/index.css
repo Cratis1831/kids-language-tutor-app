@@ -64,6 +64,74 @@ body {
   border-radius: 0.75rem;
 }
 
+/* Map character: gentle idle bounce, a somersault every few seconds, and an
+   arc hop when moving to a newly unlocked level. */
+.pawn-idle {
+  animation: pawn-bounce 1.3s ease-in-out infinite;
+}
+
+.pawn-somersault {
+  animation: pawn-somersault 7s ease-in-out infinite;
+}
+
+.pawn-hop {
+  animation: pawn-hop 0.9s cubic-bezier(0.3, 0, 0.4, 1);
+}
+
+@keyframes pawn-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+@keyframes pawn-somersault {
+  0%,
+  78% {
+    transform: rotate(0deg);
+  }
+  92%,
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pawn-hop {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  30% {
+    transform: translateY(-48px) scale(0.95, 1.08);
+  }
+  60% {
+    transform: translateY(0) scale(1.08, 0.92);
+  }
+  80% {
+    transform: translateY(-12px) scale(1, 1);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+/* Confetti explosion for a perfect level. */
+@keyframes confetti-burst {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.7);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

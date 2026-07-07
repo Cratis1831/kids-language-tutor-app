@@ -5,12 +5,14 @@ import { loadProgress } from '../../state/progress';
 import { buildLevelsForDifficulty } from '../../data/levels';
 import { categories } from '../../data/categories';
 import { getQuestion } from '../../data/questions';
-import { t } from '../../i18n/config';
-import { ui } from '../../i18n/ui';
-import { contentLocale } from '../../i18n/config';
+import { contentLocale, t } from '../../i18n/config';
+import { useLocale } from '../../i18n/LocaleContext';
 import { Button } from '../ui/Button';
+import { LangToggle } from '../ui/LangToggle';
+import { SoundToggles } from '../ui/SoundToggles';
 import { GameMap } from './GameMap';
-import { ChevronLeft } from 'lucide-react';
+import { TierFlag } from './TierFlag';
+import { ChevronLeft, Trophy } from 'lucide-react';
 
 interface MapLocationState {
   justCompleted?: number;
@@ -20,6 +22,7 @@ export function GameMapScreen() {
   const { profileId = '' } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { ui } = useLocale();
   const profile = getProfile(profileId);
 
   const levels = useMemo(
@@ -90,15 +93,39 @@ export function GameMapScreen() {
         ))}
       </div>
 
+      {/* Difficulty flag legend */}
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        {(
+          [
+            ['easy', ui.tierEasy],
+            ['medium', ui.tierMedium],
+            ['hard', ui.tierHard],
+          ] as const
+        ).map(([tier, label]) => (
+          <span key={tier} className="flex items-center gap-1.5 text-sm font-semibold text-ink/70">
+            <TierFlag tier={tier} size={16} />
+            {label}
+          </span>
+        ))}
+      </div>
+
       {/* Preload check: guard against an empty pool so the map never renders blank. */}
       {levels.length > 0 && getQuestion(levels[0].questionIds[0]) === undefined && (
         <p className="mt-6 text-center text-berry">Aucune question disponible.</p>
       )}
 
-      <div className="mt-8 text-center">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <Button variant="soft" onClick={() => navigate('/')}>
           {ui.changePlayer}
         </Button>
+        <Button variant="sun" onClick={() => navigate('/leaderboard')}>
+          <span className="inline-flex items-center gap-2">
+            <Trophy size={20} aria-hidden="true" />
+            {ui.leaderboard}
+          </span>
+        </Button>
+        <LangToggle />
+        <SoundToggles />
       </div>
     </main>
   );

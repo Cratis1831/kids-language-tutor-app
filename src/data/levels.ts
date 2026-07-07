@@ -1,8 +1,22 @@
-import type { CategoryId, Difficulty, Level, Question } from '../types';
+import type { CategoryId, Difficulty, Level, LevelTier, Question } from '../types';
 import { categoryList } from './categories';
 import { questionsByDifficulty } from './questions';
 
 export const QUESTIONS_PER_LEVEL = 5;
+
+/** Levels ending in 5 are medium, ending in 0 are hard, the rest are easy. */
+export function tierFor(levelId: number): LevelTier {
+  if (levelId % 10 === 0) return 'hard';
+  if (levelId % 5 === 0) return 'medium';
+  return 'easy';
+}
+
+/** How much of the normal question timer each tier gets. */
+export const TIER_TIME_FACTOR: Record<LevelTier, number> = {
+  easy: 1,
+  medium: 0.75,
+  hard: 0.55,
+};
 
 /**
  * Build the ordered list of levels for a difficulty. Questions are interleaved
@@ -39,6 +53,7 @@ export function buildLevelsForDifficulty(difficulty: Difficulty): Level[] {
     if (chunk.length === 0) continue;
     levels.push({
       id: levels.length + 1,
+      tier: tierFor(levels.length + 1),
       questionIds: chunk.map((q) => q.id),
     });
   }

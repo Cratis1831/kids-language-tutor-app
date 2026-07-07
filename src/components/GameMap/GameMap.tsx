@@ -1,6 +1,10 @@
+import { useEffect, useRef, useState } from 'react';
 import { Lock, Star } from 'lucide-react';
 import type { Level, Progress } from '../../types';
+import { sfx } from '../../audio/audio';
 import { buildMapLayout } from './mapLayout';
+import { MapScenery } from './MapScenery';
+import { TierFlag } from './TierFlag';
 import { StarPawn } from '../ui/StarPawn';
 
 interface GameMapProps {
@@ -25,6 +29,19 @@ export function GameMap({
 }: GameMapProps) {
   const layout = buildMapLayout(levels.length);
   const pawnNode = layout.nodes[Math.min(pawnLevel, levels.length) - 1];
+
+  // Play a little arc-hop (and boing) whenever the token moves to a new node.
+  const [hopping, setHopping] = useState(false);
+  const prevPawnLevel = useRef(pawnLevel);
+  useEffect(() => {
+    if (prevPawnLevel.current !== pawnLevel) {
+      prevPawnLevel.current = pawnLevel;
+      setHopping(true);
+      sfx.hop();
+      const timer = setTimeout(() => setHopping(false), 900);
+      return () => clearTimeout(timer);
+    }
+  }, [pawnLevel]);
 
   return (
     <div className="relative mx-auto w-full max-w-md" style={{ height: layout.height }}>
@@ -54,6 +71,9 @@ export function GameMap({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
+
+      {/* Scenery beside the road, behind the level nodes */}
+      <MapScenery nodes={layout.nodes} />
 
       {/* Level nodes */}
       {levels.map((level) => {
@@ -85,6 +105,10 @@ export function GameMap({
             >
               {unlocked ? level.id : <Lock size={26} aria-hidden="true" />}
             </span>
+            {/* Difficulty pennant */}
+            <span className="absolute -right-4 -top-5">
+              <TierFlag tier={level.tier} size={20} />
+            </span>
             {completed && (
               <span className="absolute left-1/2 -bottom-3 flex -translate-x-1/2 gap-0.5">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -102,13 +126,18 @@ export function GameMap({
         );
       })}
 
-      {/* Player token — animates to the furthest unlocked node */}
+      {/* Player token — slides to the furthest unlocked node with an arc hop,
+          idles with a gentle bounce, and does a somersault every few seconds */}
       {pawnNode && (
         <div
           className="pointer-events-none absolute z-10 -translate-x-1/2 transition-all duration-700 ease-out"
           style={{ left: `${pawnNode.x}%`, top: pawnNode.y - 58 }}
         >
-          <StarPawn size={52} color={pawnColor} />
+          <div className={hopping ? 'pawn-hop' : 'pawn-idle'}>
+            <div className="pawn-somersault">
+              <StarPawn size={52} color={pawnColor} />
+            </div>
+          </div>
         </div>
       )}
     </div>

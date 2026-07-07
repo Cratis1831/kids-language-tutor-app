@@ -4,9 +4,10 @@ import { ChevronLeft } from 'lucide-react';
 import type { Question } from '../../types';
 import { getProfile } from '../../state/profiles';
 import { recordLevelResult } from '../../state/progress';
-import { buildLevelsForDifficulty } from '../../data/levels';
+import { buildLevelsForDifficulty, TIER_TIME_FACTOR } from '../../data/levels';
 import { getQuestion } from '../../data/questions';
-import { ui } from '../../i18n/ui';
+import { useLocale } from '../../i18n/LocaleContext';
+import { sfx } from '../../audio/audio';
 import { useTimer } from '../../hooks/useTimer';
 import { Button } from '../ui/Button';
 import { Timer } from './Timer';
@@ -24,6 +25,31 @@ function starsFor(correct: number, total: number): number {
   return correct > 0 ? 1 : 0;
 }
 
+/** Points: 10 per correct answer, +25 bonus for a perfect level. */
+function pointsFor(correct: number, total: number): number {
+  return correct * 10 + (total > 0 && correct === total ? 25 : 0);
+}
+
+/** Fisher-Yates shuffle (copy). */
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Shuffle each multiple-choice question's options for this playthrough so the
+ * correct answer lands in a random position. True/false keeps Vrai/Faux order.
+ */
+function prepareQuestions(questions: Question[]): Question[] {
+  return questions.map((q) =>
+    q.type === 'multiple-choice' ? { ...q, options: shuffleArray(q.options) } : q,
+  );
+}
+
 /**
  * Remount the game whenever the level in the URL changes. Without a keyed
  * remount, navigating to the next level reuses this component instance and its
@@ -37,14 +63,23 @@ export function LevelScreen() {
 function LevelGame() {
   const { profileId = '', levelId = '' } = useParams();
   const navigate = useNavigate();
+  const { ui } = useLocale();
   const profile = getProfile(profileId);
   const levelNumber = Number(levelId);
 
   const levels = profile ? buildLevelsForDifficulty(profile.difficulty) : [];
   const level = levels.find((l) => l.id === levelNumber);
-  const questions: Question[] = (level?.questionIds ?? [])
+  const baseQuestions: Question[] = (level?.questionIds ?? [])
     .map(getQuestion)
     .filter((q): q is Question => Boolean(q));
+
+  // Options are shuffled once per playthrough (this component remounts per
+  // level via its key, and replay() reshuffles).
+  const [questions, setQuestions] = useState<Question[]>(() => prepareQuestions(baseQuestions));
+
+  // Harder level tiers get less time per question.
+  const timeFactor = TIER_TIME_FACTOR[level?.tier ?? 'easy'];
+  const timeFor = (q: Question) => Math.max(8, Math.round(q.timerSeconds * timeFactor));
 
   const [index, setIndex] = useState(0);
   const [answeredId, setAnsweredId] = useState<string | null>(null);
@@ -60,13 +95,16 @@ function LevelGame() {
       if (lockedRef.current || !question) return;
       lockedRef.current = true;
       setAnsweredId(optionId);
-      setResults((prev) => [...prev, optionId === question.correctOptionId]);
+      const isCorrect = optionId === question.correctOptionId;
+      if (isCorrect) sfx.correct();
+      else sfx.wrong();
+      setResults((prev) => [...prev, isCorrect]);
     },
     [question],
   );
 
   const { remaining, fraction, reset } = useTimer({
-    seconds: question?.timerSeconds ?? 20,
+    seconds: question ? timeFor(question) : 20,
     running: answeredId === null && !finished && Boolean(question),
     onExpire: () => handleAnswer(TIMED_OUT),
   });
@@ -75,10 +113,11 @@ function LevelGame() {
   useEffect(() => {
     lockedRef.current = false;
     setAnsweredId(null);
-    if (question) reset(question.timerSeconds);
+    if (question) reset(timeFor(question));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, question, reset]);
 
-  if (!profile || !level || questions.length === 0) {
+  if (!profile || !level || baseQuestions.length === 0) {
     navigate(`/play/${profileId}`, { replace: true });
     return null;
   }
@@ -89,7 +128,8 @@ function LevelGame() {
   const goNext = () => {
     if (isLast) {
       const stars = starsFor(correctCount, questions.length);
-      recordLevelResult(profileId, level.id, stars, levels.length);
+      const points = pointsFor(correctCount, questions.length);
+      recordLevelResult(profileId, level.id, stars, points, levels.length);
       setFinished(true);
     } else {
       setIndex((i) => i + 1);
@@ -98,11 +138,13 @@ function LevelGame() {
 
   const replay = () => {
     lockedRef.current = false;
+    const fresh = prepareQuestions(baseQuestions); // new shuffle each replay
+    setQuestions(fresh);
     setResults([]);
     setAnsweredId(null);
     setFinished(false);
     setIndex(0);
-    reset(questions[0].timerSeconds);
+    reset(timeFor(fresh[0]));
   };
 
   if (finished) {
@@ -114,6 +156,7 @@ function LevelGame() {
           stars={stars}
           correctCount={correctCount}
           total={questions.length}
+          points={pointsFor(correctCount, questions.length)}
           hasNext={hasNext}
           onReplay={replay}
           onNext={() => navigate(`/play/${profileId}/level/${level.id + 1}`)}

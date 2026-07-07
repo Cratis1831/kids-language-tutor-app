@@ -28,6 +28,23 @@ export interface UiStrings {
   true: string;
   false: string;
   starsEarned: string;
+  leaderboard: string;
+  points: string;
+  perfect: string;
+  editName: string;
+  save: string;
+  englishMenus: string;
+  playToEarn: string;
+  levelsDone: string;
+  levelDone: string;
+  music: string;
+  sounds: string;
+  resetScores: string;
+  tapToConfirm: string;
+  scoresReset: string;
+  tierEasy: string;
+  tierMedium: string;
+  tierHard: string;
 }
 
 export const fr: UiStrings = {
@@ -58,4 +75,21 @@ export const fr: UiStrings = {
   true: 'Vrai',
   false: 'Faux',
   starsEarned: 'Étoiles gagnées',
+  leaderboard: 'Tableau des champions',
+  points: 'points',
+  perfect: 'Parfait !',
+  editName: 'Modifier le nom',
+  save: 'Enregistrer',
+  englishMenus: 'Menus en anglais',
+  playToEarn: 'Joue pour gagner des points !',
+  levelsDone: 'niveaux terminés',
+  levelDone: 'niveau terminé',
+  music: 'Musique',
+  sounds: 'Sons',
+  resetScores: 'Réinitialiser les scores',
+  tapToConfirm: 'Appuie encore pour confirmer',
+  scoresReset: 'Scores remis à zéro !',
+  tierEasy: 'Facile',
+  tierMedium: 'Moyen',
+  tierHard: 'Difficile',
 };
