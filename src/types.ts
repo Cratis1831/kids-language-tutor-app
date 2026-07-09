@@ -45,7 +45,6 @@ export interface Level {
   /** 1-based level number, also its position along the map path. */
   id: number;
   tier: LevelTier;
-  questionIds: string[];
 }
 
 export interface Profile {
@@ -53,7 +52,6 @@ export interface Profile {
   name: string;
   /** A palette token value used to colour this player's avatar. */
   color: string;
-  difficulty: Difficulty;
 }
 
 /** Per-level result: number of stars earned (0–3). */

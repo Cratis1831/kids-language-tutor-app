@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.0.0",
@@ -24,6 +25,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.5.3",
-    "vite": "^5.3.3"
+    "vite": "^5.3.3",
+    "vitest": "^3.2.7"
   }
 }

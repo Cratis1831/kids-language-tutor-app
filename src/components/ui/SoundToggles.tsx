@@ -21,6 +21,7 @@ export function SoundToggles() {
         role="switch"
         aria-checked={musicOn}
         aria-label={ui.music}
+        title={ui.music}
         onClick={toggleMusic}
         className={buttonClass(musicOn)}
       >
@@ -31,6 +32,7 @@ export function SoundToggles() {
         role="switch"
         aria-checked={soundOn}
         aria-label={ui.sounds}
+        title={ui.sounds}
         onClick={toggleSound}
         className={buttonClass(soundOn)}
       >

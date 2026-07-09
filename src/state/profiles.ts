@@ -6,8 +6,8 @@ import type { Profile } from '../types';
 const STORAGE_KEY = 'fla:profiles';
 
 const defaultProfiles: Profile[] = [
-  { id: 'explorer-1', name: 'Explorateur', color: '#2ec4b6', difficulty: 'easy' },
-  { id: 'explorer-2', name: 'Exploratrice', color: '#ff5d8f', difficulty: 'hard' },
+  { id: 'explorer-1', name: 'Explorateur', color: '#2ec4b6' },
+  { id: 'explorer-2', name: 'Exploratrice', color: '#ff5d8f' },
 ];
 
 export function loadProfiles(): Profile[] {

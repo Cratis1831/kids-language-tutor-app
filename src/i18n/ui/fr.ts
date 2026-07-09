@@ -58,6 +58,18 @@ export interface UiStrings {
   progressReset: string;
   bonusLife: string;
   completedLabel: string;
+  gameRules: string;
+  ruleQuestions: string;
+  rulePoints: string;
+  ruleTimers: string;
+  ruleLives: string;
+  rulePenalties: string;
+  ruleBonus: string;
+  ruleGameOver: string;
+  tierLegend: string;
+  categoryLegend: string;
+  minimizeRules: string;
+  maximizeRules: string;
 }
 
 export const fr: UiStrings = {
@@ -118,4 +130,16 @@ export const fr: UiStrings = {
   progressReset: 'Progression remise à zéro !',
   bonusLife: 'Vie bonus gagnée !',
   completedLabel: 'Terminé',
+  gameRules: 'Règles du jeu',
+  ruleQuestions: 'Chaque niveau a 5 questions. Réponds correctement à au moins 3 pour avancer.',
+  rulePoints: 'Un niveau réussi rapporte 50, 75 ou 125 points selon son drapeau.',
+  ruleTimers: 'Les niveaux moyens et difficiles ont moins de temps par question.',
+  ruleLives: 'Tu commences avec 3 cœurs et tu peux en avoir jusqu’à 5.',
+  rulePenalties: 'Rater un niveau ou le quitter après avoir répondu coûte 1 cœur.',
+  ruleBonus: 'Tous les 5 nouveaux niveaux réussis, tu gagnes un demi-cœur.',
+  ruleGameOver: 'À zéro cœur, ta progression recommence au niveau 1.',
+  tierLegend: 'Difficulté et points',
+  categoryLegend: 'Catégories',
+  minimizeRules: 'Réduire les règles',
+  maximizeRules: 'Agrandir les règles',
 };

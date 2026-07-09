@@ -3,18 +3,14 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getProfile } from '../../state/profiles';
 import { loadProgress, resetProfileProgress } from '../../state/progress';
 import { reconcileAttempt } from '../../state/attempt';
-import { buildLevelsForDifficulty } from '../../data/levels';
-import { categories } from '../../data/categories';
-import { getQuestion } from '../../data/questions';
-import { contentLocale, t } from '../../i18n/config';
+import { buildLevels } from '../../data/levels';
 import { useLocale } from '../../i18n/LocaleContext';
 import { sfx } from '../../audio/audio';
-import { Button } from '../ui/Button';
 import { LangToggle } from '../ui/LangToggle';
 import { SoundToggles } from '../ui/SoundToggles';
 import { LivesDisplay } from '../ui/LivesDisplay';
 import { GameMap } from './GameMap';
-import { TierFlag } from './TierFlag';
+import { GameRulesPanel } from './GameRulesPanel';
 import { ChevronLeft, RotateCcw, Trophy } from 'lucide-react';
 
 interface MapLocationState {
@@ -29,11 +25,11 @@ export function GameMapScreen() {
   const { profileId = '' } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { ui } = useLocale();
+  const { ui, uiLocale } = useLocale();
   const profile = getProfile(profileId);
 
   const levels = useMemo(
-    () => (profile ? buildLevelsForDifficulty(profile.difficulty) : []),
+    () => (profile ? buildLevels() : []),
     [profile],
   );
 
@@ -46,6 +42,7 @@ export function GameMapScreen() {
 
   // Two-tap confirm so a stray tap can't wipe a child's whole adventure.
   const [resetArmed, setResetArmed] = useState(false);
+  const [rulesMinimized, setRulesMinimized] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(() => {
     if (reconcile.gameOver || locState?.gameOver) return 'gameOver';
     if (reconcile.penalized || locState?.lifeLost) return 'lifeLost';
@@ -104,30 +101,65 @@ export function GameMapScreen() {
           : '';
 
   return (
-    <main className="mx-auto min-h-full max-w-2xl px-4 pb-16">
-      <header className="sticky top-0 z-20 -mx-4 mb-2 bg-cream/80 px-4 py-3 backdrop-blur">
-        <div className="flex items-center justify-between gap-2">
+    <main className="mx-auto min-h-full max-w-6xl px-4 pb-16">
+      <header className="sticky top-0 z-30 -mx-4 mb-4 bg-cream/90 px-4 py-2 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 lg:flex-nowrap">
           <button
             onClick={() => navigate('/')}
-            className="flex shrink-0 items-center gap-1 rounded-xl px-1 py-1 font-display font-semibold text-grape"
+            aria-label={ui.changePlayer}
+            title={ui.changePlayer}
+            className="flex h-11 shrink-0 items-center gap-1 rounded-xl px-1 font-display font-semibold text-grape sm:px-2"
           >
             <ChevronLeft size={22} aria-hidden="true" />
-            <span className="hidden sm:inline">{ui.changePlayer}</span>
+            <span className="hidden xl:inline">{ui.changePlayer}</span>
           </button>
-          <div className="flex shrink-0 items-center gap-2">
+
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+            <h1 className="hidden whitespace-nowrap font-display text-xl font-bold text-grape sm:block">
+              {ui.appTitle}
+            </h1>
+            <span className="hidden h-5 w-px bg-mist/60 sm:block" aria-hidden="true" />
             <span
               className="h-6 w-6 shrink-0 rounded-full border-2 border-white"
               style={{ backgroundColor: profile.color }}
               aria-hidden="true"
             />
-            <span className="whitespace-nowrap font-display font-bold text-ink">{profile.name}</span>
+            <span className="truncate font-display font-bold text-ink">{profile.name}</span>
           </div>
-        </div>
-        <h1 className="mt-1 text-center font-display text-2xl font-bold text-grape">
-          {ui.appTitle}
-        </h1>
-        <div className="mt-1 flex items-center justify-center">
-          <LivesDisplay lives={progress.lives} size={22} />
+
+          <div className="shrink-0" title={ui.lives}>
+            <LivesDisplay lives={progress.lives} size={20} />
+          </div>
+
+          <nav
+            className="order-last flex w-full items-center justify-center gap-2 border-t-2 border-cream-deep pt-2 lg:order-none lg:w-auto lg:border-0 lg:pt-0"
+            aria-label={ui.appTitle}
+          >
+            <button
+              type="button"
+              onClick={() => navigate('/leaderboard')}
+              aria-label={ui.leaderboard}
+              title={ui.leaderboard}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-sunshine text-ink shadow-(--shadow-nub) active:translate-y-0.5 active:shadow-none"
+            >
+              <Trophy size={20} aria-hidden="true" />
+            </button>
+            <LangToggle compact />
+            <SoundToggles />
+            <button
+              type="button"
+              onClick={handleReset}
+              aria-label={resetArmed ? ui.tapToConfirm : ui.resetProgress}
+              title={resetArmed ? ui.tapToConfirm : ui.resetProgress}
+              className={[
+                'flex h-11 w-11 items-center justify-center rounded-full shadow-(--shadow-nub)',
+                'transition-colors active:translate-y-0.5 active:shadow-none',
+                resetArmed ? 'bg-berry text-white' : 'bg-white text-ink/55',
+              ].join(' ')}
+            >
+              <RotateCcw size={19} aria-hidden="true" />
+            </button>
+          </nav>
         </div>
       </header>
 
@@ -145,77 +177,36 @@ export function GameMapScreen() {
         </div>
       )}
 
-      <GameMap
-        levels={levels}
-        progress={progress}
-        pawnLevel={pawnLevel}
-        pawnColor={profile.color}
-        levelLabel={ui.level}
-        lockedLabel={ui.locked}
-        completedLabel={ui.completedLabel}
-        onSelect={(levelId) => navigate(`/play/${profileId}/level/${levelId}`)}
-      />
+      <div
+        className={[
+          'lg:grid lg:gap-10',
+          rulesMinimized
+            ? 'lg:grid-cols-[3.5rem_minmax(0,1fr)]'
+            : 'lg:grid-cols-[18rem_minmax(0,1fr)]',
+        ].join(' ')}
+      >
+        <GameRulesPanel
+          ui={ui}
+          locale={uiLocale}
+          minimized={rulesMinimized}
+          onToggleMinimized={() => setRulesMinimized((value) => !value)}
+        />
+        <div className="min-w-0">
+          <GameMap
+            levels={levels}
+            progress={progress}
+            pawnLevel={pawnLevel}
+            pawnColor={profile.color}
+            levelLabel={ui.level}
+            lockedLabel={ui.locked}
+            completedLabel={ui.completedLabel}
+            onSelect={(levelId) => navigate(`/play/${profileId}/level/${levelId}`)}
+          />
 
-      {/* Little legend of the categories in this adventure — no emojis, just dots. */}
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-        {Object.values(categories).map((cat) => (
-          <span key={cat.id} className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color }} />
-            {t(cat.name, contentLocale)}
-          </span>
-        ))}
-      </div>
-
-      {/* Difficulty flag legend */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-        {(
-          [
-            ['easy', ui.tierEasy],
-            ['medium', ui.tierMedium],
-            ['hard', ui.tierHard],
-          ] as const
-        ).map(([tier, label]) => (
-          <span key={tier} className="flex items-center gap-1.5 text-sm font-semibold text-ink/70">
-            <TierFlag tier={tier} size={16} />
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {/* Preload check: guard against an empty pool so the map never renders blank. */}
-      {levels.length > 0 && getQuestion(levels[0].questionIds[0]) === undefined && (
-        <p className="mt-6 text-center text-berry">Aucune question disponible.</p>
-      )}
-
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Button variant="soft" onClick={() => navigate('/')}>
-          {ui.changePlayer}
-        </Button>
-        <Button variant="sun" onClick={() => navigate('/leaderboard')}>
-          <span className="inline-flex items-center gap-2">
-            <Trophy size={20} aria-hidden="true" />
-            {ui.leaderboard}
-          </span>
-        </Button>
-        <LangToggle />
-        <SoundToggles />
-      </div>
-
-      <div className="mt-6 text-center">
-        <button
-          type="button"
-          onClick={handleReset}
-          className={[
-            'inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 font-display font-semibold',
-            'transition-colors active:translate-y-0.5',
-            resetArmed
-              ? 'bg-berry text-white shadow-[0_5px_0_#d93a6d]'
-              : 'bg-white text-ink/60 shadow-(--shadow-nub)',
-          ].join(' ')}
-        >
-          <RotateCcw size={18} aria-hidden="true" />
-          {resetArmed ? ui.tapToConfirm : ui.resetProgress}
-        </button>
+          {levels.length === 0 && (
+            <p className="mt-6 text-center text-berry">Aucune question disponible.</p>
+          )}
+        </div>
       </div>
     </main>
   );

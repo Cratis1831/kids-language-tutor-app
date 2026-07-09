@@ -22,25 +22,30 @@ Other scripts:
 ## How it works
 
 - **Players** — a pick-a-player screen. Each child has their own saved progress
-  and a difficulty (`easy` / `hard`) so questions suit their level. Tap the
-  pencil on a card to set a player's name.
-- **Map** — one winding path of 50 levels through SVG scenery (trees, flowers,
+  and draws from the same complete 500-question curriculum in protected,
+  randomized pools. Tap the pencil on a card to set a player's name.
+- **Map** — one winding path of 100 levels through SVG scenery (trees, flowers,
   mushrooms, clouds); each level is 5 questions mixed across categories.
   Finishing a level earns up to 3 stars and unlocks the next one. Each node
   carries a difficulty pennant: levels ending in 5 are medium (orange flag),
   levels ending in 0 are hard (red flag), the rest are easy (green flag) —
   harder tiers shorten the question timers.
 - **Questions** — 500 in the pool (100 per category), multiple-choice or
-  true/false, with answer order shuffled every playthrough. A speaker icon
-  reads the French aloud (browser text-to-speech); a lightbulb icon reveals
-  the English hint; a ring times each question.
+  true/false. Levels 1–50 use the authored easy half and levels 51–100 use the
+  hard half. Matching player levels draw from disjoint candidate pools so the
+  children cannot copy questions, while retries and answer order stay random.
+  A speaker icon reads the French aloud (browser text-to-speech); a lightbulb
+  icon reveals the English hint; a ring times each question.
 - **Audio** — generated sound effects (clicks, right/wrong, fanfares) and a
   soft looping Frère Jacques melody, with separate music and sound toggles.
   The map character bounces, somersaults, and hops forward after each level.
-- **Points & leaderboard** — every correct answer earns 10 points, a perfect
-  level adds a 25-point bonus (and a confetti explosion). The leaderboard ranks
-  players by their best points per level, and a two-tap reset button clears
-  scores without losing anyone's place on the map.
+- **Points & leaderboard** — passing an easy level earns 50 points, medium earns
+  75, and hard earns 125 (a perfect result still triggers confetti). The
+  leaderboard ranks players by their best points per level, and a two-tap reset
+  button clears scores without losing anyone's place on the map.
+- **Map controls & rules** — the sticky map toolbar keeps player switching,
+  leaderboard, language, audio, hearts, and progress reset accessible. The game
+  rules stay beside the map on desktop and expand above it on smaller screens.
 - **English menus** — a toggle on the player select and map screens switches the
   app chrome to English. Question content stays in the learning language.
 - **Saving** — progress, points, names, and the language choice are stored in

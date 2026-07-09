@@ -4,6 +4,7 @@ import {
   BONUS_LIFE_EVERY_LEVELS,
   LIVES_MAX,
   LIVES_START,
+  pointsForLevel,
 } from '../config/gameRules';
 import { clearAttempt } from './attempt';
 
@@ -11,6 +12,11 @@ import { clearAttempt } from './attempt';
 // database can later replace the localStorage calls behind the same functions.
 
 const STORAGE_PREFIX = 'fla:progress:';
+const STORAGE_VERSION = 2;
+
+interface StoredProgress extends Progress {
+  version: typeof STORAGE_VERSION;
+}
 
 function keyFor(profileId: string): string {
   return `${STORAGE_PREFIX}${profileId}`;
@@ -30,17 +36,28 @@ export function loadProgress(profileId: string): Progress {
   try {
     const raw = localStorage.getItem(keyFor(profileId));
     if (!raw) return emptyProgress();
-    const parsed = JSON.parse(raw) as Partial<Progress>;
+    const parsed = JSON.parse(raw) as Partial<StoredProgress>;
     // Older saves predate lives — default them to a full starting stock.
     const lives = Number.isFinite(parsed.lives)
       ? clampLives(parsed.lives as number)
       : LIVES_START;
-    return {
+    const legacyPoints = parsed.points ?? {};
+    const points = parsed.version === STORAGE_VERSION
+      ? legacyPoints
+      : Object.fromEntries(
+          Object.keys(legacyPoints)
+            .map(Number)
+            .filter((levelId) => Number.isInteger(levelId) && levelId > 0)
+            .map((levelId) => [levelId, pointsForLevel(levelId)]),
+        );
+    const progress: Progress = {
       unlockedLevel: Math.max(1, parsed.unlockedLevel ?? 1),
       stars: parsed.stars ?? {},
-      points: parsed.points ?? {}, // older saves predate points
+      points,
       lives,
     };
+    if (parsed.version !== STORAGE_VERSION) saveProgress(profileId, progress);
+    return progress;
   } catch {
     return emptyProgress();
   }
@@ -48,7 +65,8 @@ export function loadProgress(profileId: string): Progress {
 
 export function saveProgress(profileId: string, progress: Progress): void {
   try {
-    localStorage.setItem(keyFor(profileId), JSON.stringify(progress));
+    const stored: StoredProgress = { version: STORAGE_VERSION, ...progress };
+    localStorage.setItem(keyFor(profileId), JSON.stringify(stored));
   } catch {
     // Storage unavailable (private mode / disabled) — progress just won't persist.
   }
@@ -108,8 +126,8 @@ export function loseLife(
 }
 
 /**
- * Record a passed level. Keeps the best star count and best points for that
- * level and unlocks the next one (up to totalLevels + 1, meaning "all done").
+ * Record a passed level. Keeps the best star count, assigns the level's fixed
+ * tier reward, and unlocks the next one (up to totalLevels + 1, meaning "all done").
  * Grants a bonus life on every BONUS_LIFE_EVERY_LEVELS-th newly passed level.
  * Returns the updated progress and whether a bonus life was awarded.
  */
@@ -117,12 +135,11 @@ export function recordLevelResult(
   profileId: string,
   levelId: number,
   stars: number,
-  points: number,
   totalLevels: number,
 ): { progress: Progress; bonusLifeAwarded: boolean } {
   const progress = loadProgress(profileId);
   const bestStars = Math.max(progress.stars[levelId] ?? 0, stars);
-  const bestPoints = Math.max(progress.points[levelId] ?? 0, points);
+  const bestPoints = pointsForLevel(levelId);
   const nextUnlocked = Math.min(
     Math.max(progress.unlockedLevel, levelId + 1),
     totalLevels + 1,

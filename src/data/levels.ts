@@ -1,17 +1,10 @@
-import type { CategoryId, Difficulty, Level, LevelTier, Question } from '../types';
-import { QUESTION_BAND_SIZE } from '../config/gameRules';
+import type { CategoryId, Level, LevelTier, Question } from '../types';
+import { QUESTION_BAND_SIZE, tierForLevel } from '../config/gameRules';
 import { shuffleArray } from '../utils/shuffle';
 import { categoryList } from './categories';
 import { questionsByDifficulty } from './questions';
 
 export const QUESTIONS_PER_LEVEL = 5;
-
-/** Levels ending in 5 are medium, ending in 0 are hard, the rest are easy. */
-export function tierFor(levelId: number): LevelTier {
-  if (levelId % 10 === 0) return 'hard';
-  if (levelId % 5 === 0) return 'medium';
-  return 'easy';
-}
 
 /** How much of the normal question timer each tier gets. */
 export const TIER_TIME_FACTOR: Record<LevelTier, number> = {
@@ -20,79 +13,86 @@ export const TIER_TIME_FACTOR: Record<LevelTier, number> = {
   hard: 0.55,
 };
 
-/**
- * Build the ordered list of levels for a difficulty. Questions are interleaved
- * round-robin across categories so each level mixes topics, then chunked into
- * levels of QUESTIONS_PER_LEVEL. Difficulty rises naturally: later levels pull
- * the later (harder) questions authored within each category.
- */
-export function buildLevelsForDifficulty(difficulty: Difficulty): Level[] {
-  const pool = questionsByDifficulty(difficulty);
-
+function questionsByCategory(): Map<CategoryId, Question[]> {
   const byCategory = new Map<CategoryId, Question[]>();
   for (const cat of categoryList) byCategory.set(cat.id, []);
-  for (const q of pool) byCategory.get(q.category)?.push(q);
 
-  // Round-robin interleave across categories for a varied path.
-  const ordered: Question[] = [];
-  let added = true;
-  let index = 0;
-  while (added) {
-    added = false;
-    for (const cat of categoryList) {
-      const list = byCategory.get(cat.id)!;
-      if (index < list.length) {
-        ordered.push(list[index]);
-        added = true;
-      }
+  // Every player follows the same curriculum: all authored easy questions,
+  // then all authored hard questions. Each category currently has 50 of each.
+  for (const difficulty of ['easy', 'hard'] as const) {
+    for (const question of questionsByDifficulty(difficulty)) {
+      byCategory.get(question.category)?.push(question);
     }
-    index += 1;
   }
+  return byCategory;
+}
 
-  const levels: Level[] = [];
-  for (let i = 0; i < ordered.length; i += QUESTIONS_PER_LEVEL) {
-    const chunk = ordered.slice(i, i + QUESTIONS_PER_LEVEL);
-    if (chunk.length === 0) continue;
-    levels.push({
-      id: levels.length + 1,
-      tier: tierFor(levels.length + 1),
-      questionIds: chunk.map((q) => q.id),
-    });
-  }
-  return levels;
+const sharedQuestions = questionsByCategory();
+
+/** Build the shared 100-level path from the smallest complete category pool. */
+export function buildLevels(): Level[] {
+  const totalLevels = Math.min(
+    ...categoryList.map((category) => sharedQuestions.get(category.id)?.length ?? 0),
+  );
+  return Array.from({ length: totalLevels }, (_, index) => ({
+    id: index + 1,
+    tier: tierForLevel(index + 1),
+  }));
+}
+
+function playerSlot(profileId: string): 0 | 1 {
+  if (profileId === 'explorer-1') return 0;
+  if (profileId === 'explorer-2') return 1;
+  let hash = 0;
+  for (const char of profileId) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return (Math.abs(hash) % 2) as 0 | 1;
+}
+
+/**
+ * Return this player's protected candidates for a category and level. Rotating
+ * a ten-question band before splitting it gives both players access to every
+ * question across the band, while the two matching level pools stay disjoint.
+ */
+export function candidateQuestionsForLevel(
+  profileId: string,
+  levelId: number,
+  categoryId: CategoryId,
+): Question[] {
+  const list = sharedQuestions.get(categoryId) ?? [];
+  if (list.length === 0) return [];
+
+  const bandIndex = Math.floor((levelId - 1) / QUESTION_BAND_SIZE);
+  const band = list.slice(
+    bandIndex * QUESTION_BAND_SIZE,
+    (bandIndex + 1) * QUESTION_BAND_SIZE,
+  );
+  if (band.length < 2) return band.length > 0 ? band : list;
+
+  const rotation = (levelId - 1) % band.length;
+  const rotated = [...band.slice(rotation), ...band.slice(0, rotation)];
+  const split = Math.ceil(rotated.length / 2);
+  return playerSlot(profileId) === 0
+    ? rotated.slice(0, split)
+    : rotated.slice(split);
 }
 
 /**
  * Draw a fresh set of questions for one attempt at a level: one random question
- * per category, taken from the level's difficulty band. Bands group levels in
- * tens, so levels 1–10 draw from each category's first 10 authored questions,
- * 11–20 from the next 10, etc. — the same rising difficulty as the fixed level
- * layout, but varied on each attempt. Pass the previous attempt's question ids
- * as `avoidIds` to steer clear of an immediate repeat.
+ * per category, taken from the level's protected player pool. Bands 1–5 use
+ * easy questions and bands 6–10 use hard questions. Pass the previous attempt's
+ * question ids as `avoidIds` to steer clear of an immediate repeat.
  */
 export function drawQuestionsForLevel(
-  difficulty: Difficulty,
+  profileId: string,
   levelId: number,
   avoidIds: string[] = [],
 ): Question[] {
-  const pool = questionsByDifficulty(difficulty);
-
-  const byCategory = new Map<CategoryId, Question[]>();
-  for (const cat of categoryList) byCategory.set(cat.id, []);
-  for (const q of pool) byCategory.get(q.category)?.push(q);
-
-  const band = Math.floor((levelId - 1) / QUESTION_BAND_SIZE);
   const avoid = new Set(avoidIds);
 
   const picked: Question[] = [];
   for (const cat of categoryList) {
-    const list = byCategory.get(cat.id)!;
-    if (list.length === 0) continue;
-    // The band's slice for this category, falling back to the whole list.
-    const slice = list.slice(band * QUESTION_BAND_SIZE, (band + 1) * QUESTION_BAND_SIZE);
-    const candidatePool = slice.length > 0 ? slice : list;
-    // Prefer candidates not in the just-played set; if that leaves nothing
-    // (a pool of one), allow the repeat rather than picking nothing.
+    const candidatePool = candidateQuestionsForLevel(profileId, levelId, cat.id);
+    if (candidatePool.length === 0) continue;
     const fresh = candidatePool.filter((q) => !avoid.has(q.id));
     const candidates = fresh.length > 0 ? fresh : candidatePool;
     picked.push(candidates[Math.floor(Math.random() * candidates.length)]);

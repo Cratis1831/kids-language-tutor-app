@@ -11,7 +11,7 @@ import {
   reconcileAttempt,
 } from '../../state/attempt';
 import {
-  buildLevelsForDifficulty,
+  buildLevels,
   drawQuestionsForLevel,
   TIER_TIME_FACTOR,
 } from '../../data/levels';
@@ -19,6 +19,7 @@ import {
   LIFE_LOST_ON_ABANDON,
   LIFE_LOST_ON_FAIL,
   PASS_THRESHOLD,
+  TIER_POINTS,
 } from '../../config/gameRules';
 import { shuffleArray } from '../../utils/shuffle';
 import { useLocale } from '../../i18n/LocaleContext';
@@ -51,11 +52,6 @@ function starsFor(correct: number, total: number): number {
   return Math.min(3, 1 + Math.round(((correct - PASS_THRESHOLD) / range) * 2));
 }
 
-/** Points: 10 per correct answer, +25 bonus for a perfect level. */
-function pointsFor(correct: number, total: number): number {
-  return correct * 10 + (total > 0 && correct === total ? 25 : 0);
-}
-
 /**
  * Shuffle each multiple-choice question's options for this playthrough so the
  * correct answer lands in a random position. True/false keeps Vrai/Faux order.
@@ -83,7 +79,7 @@ function LevelGame() {
   const profile = getProfile(profileId);
   const levelNumber = Number(levelId);
 
-  const levels = profile ? buildLevelsForDifficulty(profile.difficulty) : [];
+  const levels = profile ? buildLevels() : [];
   const level = levels.find((l) => l.id === levelNumber);
 
   // One-time attempt setup: reconcile any dangling (abandoned) attempt, draw a
@@ -95,7 +91,7 @@ function LevelGame() {
     const reconcile = reconcileAttempt(profileId);
     const current = loadProgress(profileId); // lives after any abandon penalty
     const drawn = drawQuestionsForLevel(
-      profile.difficulty,
+      profileId,
       levelNumber,
       reconcile.lastQuestionIds ?? [],
     );
@@ -160,7 +156,6 @@ function LevelGame() {
             profileId,
             level.id,
             starsFor(correct, questions.length),
-            pointsFor(correct, questions.length),
             levels.length,
           );
           setLives(progress.lives);
@@ -228,7 +223,7 @@ function LevelGame() {
   const replay = () => {
     lockedRef.current = false;
     const drawn = drawQuestionsForLevel(
-      profile.difficulty,
+      profileId,
       levelNumber,
       questions.map((q) => q.id),
     );
@@ -277,7 +272,7 @@ function LevelGame() {
           stars={stars}
           correctCount={correctCount}
           total={questions.length}
-          points={pointsFor(correctCount, questions.length)}
+          points={passed ? TIER_POINTS[level.tier] : 0}
           hasNext={hasNext}
           livesLeft={outcome?.livesLeft ?? lives}
           bonusLifeAwarded={outcome?.bonusLifeAwarded ?? false}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lock, Star } from 'lucide-react';
 import type { Level, Progress } from '../../types';
 import { sfx } from '../../audio/audio';
@@ -29,7 +29,7 @@ export function GameMap({
   lockedLabel,
   completedLabel,
 }: GameMapProps) {
-  const layout = buildMapLayout(levels.length);
+  const layout = useMemo(() => buildMapLayout(levels.length), [levels.length]);
   const pawnNode = layout.nodes[Math.min(pawnLevel, levels.length) - 1];
 
   // Play a little arc-hop (and boing) whenever the token moves to a new node.
