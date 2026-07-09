@@ -1,39 +1,85 @@
 import { useEffect } from 'react';
+import { HeartCrack } from 'lucide-react';
 import { useLocale } from '../../i18n/LocaleContext';
 import { sfx } from '../../audio/audio';
+import { PASS_THRESHOLD } from '../../config/gameRules';
 import { Button } from '../ui/Button';
 import { Stars } from '../ui/Stars';
+import { LivesDisplay } from '../ui/LivesDisplay';
 import { ConfettiBurst } from './ConfettiBurst';
 
 interface ResultScreenProps {
+  passed: boolean;
   stars: number;
   correctCount: number;
   total: number;
   points: number;
   hasNext: boolean;
-  onReplay: () => void;
+  livesLeft: number;
+  bonusLifeAwarded: boolean;
+  onRetry: () => void;
   onNext: () => void;
   onMap: () => void;
 }
 
 export function ResultScreen({
+  passed,
   stars,
   correctCount,
   total,
   points,
   hasNext,
-  onReplay,
+  livesLeft,
+  bonusLifeAwarded,
+  onRetry,
   onNext,
   onMap,
 }: ResultScreenProps) {
   const { ui } = useLocale();
-  const perfect = total > 0 && correctCount === total;
+  const perfect = passed && total > 0 && correctCount === total;
 
-  // Celebration jingle when the results appear.
+  // Sound when the results appear: a jingle on a pass, a soft "wah" on a fail.
   useEffect(() => {
-    if (perfect) sfx.perfect();
+    if (!passed) sfx.wrong();
+    else if (perfect) sfx.perfect();
     else sfx.levelDone();
-  }, [perfect]);
+  }, [passed, perfect]);
+
+  if (!passed) {
+    return (
+      <div className="relative mx-auto max-w-md rounded-(--radius-blob) bg-white p-8 text-center shadow-(--shadow-pop)">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-berry/15">
+          <HeartCrack size={44} className="text-berry" strokeWidth={2.2} aria-hidden="true" />
+        </div>
+
+        <h2 className="font-display text-3xl font-bold text-berry">{ui.levelFailed}</h2>
+
+        <p className="mt-4 font-display text-xl text-ink">
+          {ui.youScored}{' '}
+          <span className="font-bold text-berry">
+            {correctCount} {ui.outOf} {total}
+          </span>
+        </p>
+        <p className="mt-2 font-display text-ink/70">
+          {ui.passRequirement.replace('{count}', String(PASS_THRESHOLD))}
+        </p>
+
+        <div className="mt-5 flex flex-col items-center gap-2">
+          <p className="font-display font-semibold text-berry">{ui.lifeLost}</p>
+          <LivesDisplay lives={livesLeft} size={26} />
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3">
+          <Button variant="primary" onClick={onRetry}>
+            {ui.tryAgain}
+          </Button>
+          <Button variant="soft" onClick={onMap}>
+            {ui.backToMap}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative mx-auto max-w-md rounded-(--radius-blob) bg-white p-8 text-center shadow-(--shadow-pop)">
@@ -65,15 +111,19 @@ export function ResultScreen({
         +{points} {ui.points}
       </p>
 
+      {bonusLifeAwarded && (
+        <div className="mt-5 flex flex-col items-center gap-2">
+          <p className="font-display font-semibold text-berry">{ui.bonusLife}</p>
+          <LivesDisplay lives={livesLeft} size={26} />
+        </div>
+      )}
+
       <div className="mt-8 flex flex-col gap-3">
         {hasNext && (
           <Button variant="primary" onClick={onNext}>
             {ui.nextLevel}
           </Button>
         )}
-        <Button variant="sun" onClick={onReplay}>
-          {ui.playAgain}
-        </Button>
         <Button variant="soft" onClick={onMap}>
           {ui.backToMap}
         </Button>

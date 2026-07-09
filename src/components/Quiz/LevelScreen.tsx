@@ -3,41 +3,57 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import type { Question } from '../../types';
 import { getProfile } from '../../state/profiles';
-import { recordLevelResult } from '../../state/progress';
-import { buildLevelsForDifficulty, TIER_TIME_FACTOR } from '../../data/levels';
-import { getQuestion } from '../../data/questions';
+import { loadProgress, loseLife, recordLevelResult } from '../../state/progress';
+import {
+  beginAttempt,
+  clearAttempt,
+  markAnswered,
+  reconcileAttempt,
+} from '../../state/attempt';
+import {
+  buildLevelsForDifficulty,
+  drawQuestionsForLevel,
+  TIER_TIME_FACTOR,
+} from '../../data/levels';
+import {
+  LIFE_LOST_ON_ABANDON,
+  LIFE_LOST_ON_FAIL,
+  PASS_THRESHOLD,
+} from '../../config/gameRules';
+import { shuffleArray } from '../../utils/shuffle';
 import { useLocale } from '../../i18n/LocaleContext';
 import { sfx } from '../../audio/audio';
 import { useTimer } from '../../hooks/useTimer';
 import { Button } from '../ui/Button';
+import { LivesDisplay } from '../ui/LivesDisplay';
 import { Timer } from './Timer';
 import { QuestionCard } from './QuestionCard';
 import { ResultScreen } from './ResultScreen';
+import { GameOverScreen } from './GameOverScreen';
 
 const TIMED_OUT = '__timeout__';
 
-/** Stars from the score: 3 for perfect, 2 for 60%+, 1 for any correct, else 0. */
+interface AttemptOutcome {
+  passed: boolean;
+  bonusLifeAwarded: boolean;
+  gameOver: boolean;
+  livesLeft: number;
+}
+
+/**
+ * Stars from a passing score: 1 at the pass threshold, scaling up to 3 for a
+ * perfect level. A failing score earns none (and is never recorded).
+ */
 function starsFor(correct: number, total: number): number {
-  if (total === 0) return 0;
-  const ratio = correct / total;
-  if (ratio >= 1) return 3;
-  if (ratio >= 0.6) return 2;
-  return correct > 0 ? 1 : 0;
+  if (correct < PASS_THRESHOLD) return 0;
+  const range = total - PASS_THRESHOLD;
+  if (range <= 0) return 3;
+  return Math.min(3, 1 + Math.round(((correct - PASS_THRESHOLD) / range) * 2));
 }
 
 /** Points: 10 per correct answer, +25 bonus for a perfect level. */
 function pointsFor(correct: number, total: number): number {
   return correct * 10 + (total > 0 && correct === total ? 25 : 0);
-}
-
-/** Fisher-Yates shuffle (copy). */
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 /**
@@ -69,13 +85,33 @@ function LevelGame() {
 
   const levels = profile ? buildLevelsForDifficulty(profile.difficulty) : [];
   const level = levels.find((l) => l.id === levelNumber);
-  const baseQuestions: Question[] = (level?.questionIds ?? [])
-    .map(getQuestion)
-    .filter((q): q is Question => Boolean(q));
 
-  // Options are shuffled once per playthrough (this component remounts per
-  // level via its key, and replay() reshuffles).
-  const [questions, setQuestions] = useState<Question[]>(() => prepareQuestions(baseQuestions));
+  // One-time attempt setup: reconcile any dangling (abandoned) attempt, draw a
+  // fresh set of questions for this playthrough, and start a new marker. The
+  // pre-reconcile unlockedLevel snapshot gates access to this level below.
+  const [init] = useState(() => {
+    if (!profile || !level) return { valid: false as const };
+    const snapshot = loadProgress(profileId);
+    const reconcile = reconcileAttempt(profileId);
+    const current = loadProgress(profileId); // lives after any abandon penalty
+    const drawn = drawQuestionsForLevel(
+      profile.difficulty,
+      levelNumber,
+      reconcile.lastQuestionIds ?? [],
+    );
+    beginAttempt(profileId, levelNumber, drawn.map((q) => q.id));
+    return {
+      valid: true as const,
+      reconcile,
+      unlockedSnapshot: snapshot.unlockedLevel,
+      initialLives: current.lives,
+      initialQuestions: prepareQuestions(drawn),
+    };
+  });
+
+  const [questions, setQuestions] = useState<Question[]>(
+    init.valid ? init.initialQuestions : [],
+  );
 
   // Harder level tiers get less time per question.
   const timeFactor = TIER_TIME_FACTOR[level?.tier ?? 'easy'];
@@ -85,22 +121,68 @@ function LevelGame() {
   const [answeredId, setAnsweredId] = useState<string | null>(null);
   const [results, setResults] = useState<boolean[]>([]);
   const [finished, setFinished] = useState(false);
+  const [outcome, setOutcome] = useState<AttemptOutcome | null>(null);
+  const [lives, setLives] = useState(init.valid ? init.initialLives : 0);
+  const [showAbandonBanner, setShowAbandonBanner] = useState(
+    init.valid ? init.reconcile.penalized && !init.reconcile.gameOver : false,
+  );
   // Ref guard so a click and a timeout can't both record an answer.
   const lockedRef = useRef(false);
 
   const question = questions[index];
 
+  useEffect(() => {
+    if (!showAbandonBanner) return;
+    const timer = setTimeout(() => setShowAbandonBanner(false), 3000);
+    return () => clearTimeout(timer);
+  }, [showAbandonBanner]);
+
   const handleAnswer = useCallback(
     (optionId: string) => {
-      if (lockedRef.current || !question) return;
+      if (lockedRef.current || !question || !level) return;
       lockedRef.current = true;
       setAnsweredId(optionId);
       const isCorrect = optionId === question.correctOptionId;
       if (isCorrect) sfx.correct();
       else sfx.wrong();
-      setResults((prev) => [...prev, isCorrect]);
+
+      const next = [...results, isCorrect];
+      setResults(next);
+      markAnswered(profileId, next.length);
+
+      // Finalize the moment the last answer lands (not on the "Finish" button),
+      // so refreshing before confirming can't dodge a failed level.
+      if (next.length === questions.length) {
+        clearAttempt(profileId);
+        const correct = next.filter(Boolean).length;
+        if (correct >= PASS_THRESHOLD) {
+          const { progress, bonusLifeAwarded } = recordLevelResult(
+            profileId,
+            level.id,
+            starsFor(correct, questions.length),
+            pointsFor(correct, questions.length),
+            levels.length,
+          );
+          setLives(progress.lives);
+          setOutcome({
+            passed: true,
+            bonusLifeAwarded,
+            gameOver: false,
+            livesLeft: progress.lives,
+          });
+        } else {
+          const { progress, gameOver } = loseLife(profileId, LIFE_LOST_ON_FAIL);
+          setLives(progress.lives);
+          setOutcome({
+            passed: false,
+            bonusLifeAwarded: false,
+            gameOver,
+            livesLeft: progress.lives,
+          });
+        }
+      }
     },
-    [question],
+    [question, results, questions.length, profileId, level, levels.length],
   );
 
   const { remaining, fraction, reset } = useTimer({
@@ -117,7 +199,17 @@ function LevelGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, question, reset]);
 
-  if (!profile || !level || baseQuestions.length === 0) {
+  // Redirects (invalid target, game over from an abandoned attempt, or trying
+  // to reach a locked / already-beaten level directly by URL).
+  if (!init.valid || !profile || !level) {
+    navigate(`/play/${profileId}`, { replace: true });
+    return null;
+  }
+  if (init.reconcile.gameOver) {
+    navigate(`/play/${profileId}`, { replace: true, state: { gameOver: true } });
+    return null;
+  }
+  if (levelNumber !== init.unlockedSnapshot) {
     navigate(`/play/${profileId}`, { replace: true });
     return null;
   }
@@ -127,10 +219,7 @@ function LevelGame() {
 
   const goNext = () => {
     if (isLast) {
-      const stars = starsFor(correctCount, questions.length);
-      const points = pointsFor(correctCount, questions.length);
-      recordLevelResult(profileId, level.id, stars, points, levels.length);
-      setFinished(true);
+      setFinished(true); // outcome was already applied when the last answer landed
     } else {
       setIndex((i) => i + 1);
     }
@@ -138,29 +227,68 @@ function LevelGame() {
 
   const replay = () => {
     lockedRef.current = false;
-    const fresh = prepareQuestions(baseQuestions); // new shuffle each replay
+    const drawn = drawQuestionsForLevel(
+      profile.difficulty,
+      levelNumber,
+      questions.map((q) => q.id),
+    );
+    beginAttempt(profileId, levelNumber, drawn.map((q) => q.id));
+    const fresh = prepareQuestions(drawn);
     setQuestions(fresh);
     setResults([]);
     setAnsweredId(null);
     setFinished(false);
+    setOutcome(null);
     setIndex(0);
     reset(timeFor(fresh[0]));
   };
 
+  // Leaving mid-level: costs a life only if at least one question was answered
+  // and the attempt hasn't already been finalized (outcome set).
+  const quitToMap = () => {
+    if (outcome === null) {
+      clearAttempt(profileId);
+      if (results.length > 0) {
+        const { gameOver } = loseLife(profileId, LIFE_LOST_ON_ABANDON);
+        navigate(`/play/${profileId}`, {
+          state: gameOver ? { gameOver: true } : { lifeLost: true },
+        });
+        return;
+      }
+    }
+    navigate(`/play/${profileId}`);
+  };
+
   if (finished) {
-    const stars = starsFor(correctCount, questions.length);
-    const hasNext = level.id < levels.length && level.id + 1 <= levels.length;
+    if (outcome?.gameOver) {
+      return (
+        <main className="mx-auto flex min-h-full max-w-2xl flex-col justify-center px-4 py-10">
+          <GameOverScreen onRestart={() => navigate(`/play/${profileId}`)} />
+        </main>
+      );
+    }
+    const passed = outcome?.passed ?? false;
+    const stars = passed ? starsFor(correctCount, questions.length) : 0;
+    const hasNext = passed && level.id < levels.length;
     return (
       <main className="mx-auto flex min-h-full max-w-2xl flex-col justify-center px-4 py-10">
         <ResultScreen
+          passed={passed}
           stars={stars}
           correctCount={correctCount}
           total={questions.length}
           points={pointsFor(correctCount, questions.length)}
           hasNext={hasNext}
-          onReplay={replay}
+          livesLeft={outcome?.livesLeft ?? lives}
+          bonusLifeAwarded={outcome?.bonusLifeAwarded ?? false}
+          onRetry={replay}
           onNext={() => navigate(`/play/${profileId}/level/${level.id + 1}`)}
-          onMap={() => navigate(`/play/${profileId}`, { state: { justCompleted: level.id } })}
+          onMap={() =>
+            navigate(
+              `/play/${profileId}`,
+              passed ? { state: { justCompleted: level.id } } : undefined,
+            )
+          }
         />
       </main>
     );
@@ -170,9 +298,14 @@ function LevelGame() {
 
   return (
     <main className="mx-auto min-h-full max-w-2xl px-4 pb-16">
+      {showAbandonBanner && (
+        <div className="-mx-4 mb-1 bg-berry px-4 py-2 text-center font-display text-sm font-bold text-white">
+          {ui.lifeLostAbandon}
+        </div>
+      )}
       <header className="flex items-center justify-between gap-2 py-4">
         <button
-          onClick={() => navigate(`/play/${profileId}`)}
+          onClick={quitToMap}
           className="flex shrink-0 items-center gap-1 rounded-xl px-1 py-1 font-display font-semibold text-grape"
         >
           <ChevronLeft size={22} aria-hidden="true" />
@@ -181,7 +314,8 @@ function LevelGame() {
         <span className="min-w-0 flex-1 truncate text-center font-display text-sm font-semibold text-ink/70 sm:text-base">
           {ui.level} {level.id} · {ui.question} {index + 1} {ui.of} {questions.length}
         </span>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
+          <LivesDisplay lives={lives} size={18} />
           <Timer remaining={remaining} fraction={fraction} />
         </div>
       </header>

@@ -1,4 +1,6 @@
 import type { CategoryId, Difficulty, Level, LevelTier, Question } from '../types';
+import { QUESTION_BAND_SIZE } from '../config/gameRules';
+import { shuffleArray } from '../utils/shuffle';
 import { categoryList } from './categories';
 import { questionsByDifficulty } from './questions';
 
@@ -58,4 +60,44 @@ export function buildLevelsForDifficulty(difficulty: Difficulty): Level[] {
     });
   }
   return levels;
+}
+
+/**
+ * Draw a fresh set of questions for one attempt at a level: one random question
+ * per category, taken from the level's difficulty band. Bands group levels in
+ * tens, so levels 1–10 draw from each category's first 10 authored questions,
+ * 11–20 from the next 10, etc. — the same rising difficulty as the fixed level
+ * layout, but varied on each attempt. Pass the previous attempt's question ids
+ * as `avoidIds` to steer clear of an immediate repeat.
+ */
+export function drawQuestionsForLevel(
+  difficulty: Difficulty,
+  levelId: number,
+  avoidIds: string[] = [],
+): Question[] {
+  const pool = questionsByDifficulty(difficulty);
+
+  const byCategory = new Map<CategoryId, Question[]>();
+  for (const cat of categoryList) byCategory.set(cat.id, []);
+  for (const q of pool) byCategory.get(q.category)?.push(q);
+
+  const band = Math.floor((levelId - 1) / QUESTION_BAND_SIZE);
+  const avoid = new Set(avoidIds);
+
+  const picked: Question[] = [];
+  for (const cat of categoryList) {
+    const list = byCategory.get(cat.id)!;
+    if (list.length === 0) continue;
+    // The band's slice for this category, falling back to the whole list.
+    const slice = list.slice(band * QUESTION_BAND_SIZE, (band + 1) * QUESTION_BAND_SIZE);
+    const candidatePool = slice.length > 0 ? slice : list;
+    // Prefer candidates not in the just-played set; if that leaves nothing
+    // (a pool of one), allow the repeat rather than picking nothing.
+    const fresh = candidatePool.filter((q) => !avoid.has(q.id));
+    const candidates = fresh.length > 0 ? fresh : candidatePool;
+    picked.push(candidates[Math.floor(Math.random() * candidates.length)]);
+  }
+
+  // Shuffle so category order also varies between attempts.
+  return shuffleArray(picked);
 }

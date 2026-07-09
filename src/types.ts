@@ -60,10 +60,12 @@ export interface Profile {
 export type LevelStars = Record<number, number>;
 
 export interface Progress {
-  /** Highest level the player has unlocked (>= 1). */
+  /** Highest level the player has unlocked (1 .. totalLevels + 1). */
   unlockedLevel: number;
   /** Stars earned per completed level. */
   stars: LevelStars;
   /** Best points earned per completed level. */
   points: Record<number, number>;
+  /** Remaining lives, in 0.5 steps, within (0, LIVES_MAX]. */
+  lives: number;
 }

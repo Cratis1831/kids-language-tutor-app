@@ -45,6 +45,19 @@ export interface UiStrings {
   tierEasy: string;
   tierMedium: string;
   tierHard: string;
+  lives: string;
+  lifeLost: string;
+  lifeLostAbandon: string;
+  levelFailed: string;
+  passRequirement: string;
+  tryAgain: string;
+  gameOver: string;
+  gameOverMessage: string;
+  restartAdventure: string;
+  resetProgress: string;
+  progressReset: string;
+  bonusLife: string;
+  completedLabel: string;
 }
 
 export const fr: UiStrings = {
@@ -92,4 +105,17 @@ export const fr: UiStrings = {
   tierEasy: 'Facile',
   tierMedium: 'Moyen',
   tierHard: 'Difficile',
+  lives: 'Vies',
+  lifeLost: 'Tu as perdu une vie !',
+  lifeLostAbandon: 'Niveau quitté : une vie perdue !',
+  levelFailed: 'Niveau raté !',
+  passRequirement: 'Il te faut au moins {count} bonnes réponses pour réussir.',
+  tryAgain: 'Réessayer',
+  gameOver: 'Oh non, partie terminée !',
+  gameOverMessage: "Tu as perdu toutes tes vies. L'aventure recommence au début !",
+  restartAdventure: "Recommencer l'aventure",
+  resetProgress: 'Réinitialiser la progression',
+  progressReset: 'Progression remise à zéro !',
+  bonusLife: 'Vie bonus gagnée !',
+  completedLabel: 'Terminé',
 };

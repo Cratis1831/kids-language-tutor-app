@@ -16,6 +16,7 @@ interface GameMapProps {
   onSelect: (levelId: number) => void;
   levelLabel: string;
   lockedLabel: string;
+  completedLabel: string;
 }
 
 export function GameMap({
@@ -26,6 +27,7 @@ export function GameMap({
   onSelect,
   levelLabel,
   lockedLabel,
+  completedLabel,
 }: GameMapProps) {
   const layout = buildMapLayout(levels.length);
   const pawnNode = layout.nodes[Math.min(pawnLevel, levels.length) - 1];
@@ -79,15 +81,23 @@ export function GameMap({
       {levels.map((level) => {
         const node = layout.nodes[level.id - 1];
         const unlocked = level.id <= progress.unlockedLevel;
+        // Completion derives from the frontier, not from stars — so a
+        // leaderboard score wipe can't make beaten levels playable again.
+        const completed = level.id < progress.unlockedLevel;
+        const playable = unlocked && !completed;
         const stars = progress.stars[level.id];
-        const completed = stars !== undefined;
+        const hasStars = stars !== undefined;
         return (
           <button
             key={level.id}
-            disabled={!unlocked}
+            disabled={!playable}
             onClick={() => onSelect(level.id)}
             aria-label={
-              unlocked ? `${levelLabel} ${level.id}` : `${levelLabel} ${level.id} — ${lockedLabel}`
+              completed
+                ? `${levelLabel} ${level.id} — ${completedLabel}`
+                : unlocked
+                  ? `${levelLabel} ${level.id}`
+                  : `${levelLabel} ${level.id} — ${lockedLabel}`
             }
             className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform
                        duration-150 enabled:hover:scale-110 disabled:cursor-not-allowed"
@@ -103,13 +113,19 @@ export function GameMap({
               ].join(' ')}
               style={unlocked ? { backgroundColor: completed ? 'var(--color-lagoon)' : 'var(--color-grape)' } : undefined}
             >
-              {unlocked ? level.id : <Lock size={26} aria-hidden="true" />}
+              {level.id}
             </span>
+            {/* Small padlock badge so locked levels still read as locked. */}
+            {!unlocked && (
+              <span className="absolute -bottom-1 -left-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-mist text-white">
+                <Lock size={12} aria-hidden="true" />
+              </span>
+            )}
             {/* Difficulty pennant */}
             <span className="absolute -right-4 -top-5">
               <TierFlag tier={level.tier} size={20} />
             </span>
-            {completed && (
+            {hasStars && (
               <span className="absolute left-1/2 -bottom-3 flex -translate-x-1/2 gap-0.5">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <Star
