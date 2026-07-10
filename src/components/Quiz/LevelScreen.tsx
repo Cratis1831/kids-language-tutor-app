@@ -31,6 +31,7 @@ import { Timer } from './Timer';
 import { QuestionCard } from './QuestionCard';
 import { ResultScreen } from './ResultScreen';
 import { GameOverScreen } from './GameOverScreen';
+import { GameMap } from '../GameMap/GameMap';
 
 const TIMED_OUT = '__timeout__';
 
@@ -40,6 +41,11 @@ interface AttemptOutcome {
   gameOver: boolean;
   livesLeft: number;
 }
+
+type CompletionPhase = 'idle' | 'lifting' | 'moving' | 'restoring';
+
+const LIFT_MS = 420;
+const RESTORE_MS = 480;
 
 /**
  * Stars from a passing score: 1 at the pass threshold, scaling up to 3 for a
@@ -122,8 +128,17 @@ function LevelGame() {
   const [showAbandonBanner, setShowAbandonBanner] = useState(
     init.valid ? init.reconcile.penalized && !init.reconcile.gameOver : false,
   );
+  const [completionPhase, setCompletionPhase] = useState<CompletionPhase>('idle');
+  const [transitionPawnLevel, setTransitionPawnLevel] = useState(levelNumber);
   // Ref guard so a click and a timeout can't both record an answer.
   const lockedRef = useRef(false);
+  const transitionTimerRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current);
+    }
+  }, []);
 
   const question = questions[index];
 
@@ -213,12 +228,33 @@ function LevelGame() {
   const correctCount = results.filter(Boolean).length;
 
   const goNext = () => {
+    if (completionPhase !== 'idle') return;
     if (isLast) {
-      setFinished(true); // outcome was already applied when the last answer landed
+      // A pass gets a short map reveal before results. Keeping this local to the
+      // level route means a refresh or interrupted animation cannot alter progress.
+      if (outcome?.passed && level.id < levels.length) {
+        lockedRef.current = true;
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        setCompletionPhase('lifting');
+        transitionTimerRef.current = window.setTimeout(() => {
+          setCompletionPhase('moving');
+          setTransitionPawnLevel(level.id + 1);
+        }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : LIFT_MS);
+      } else {
+        setFinished(true); // outcome was already applied when the last answer landed
+      }
     } else {
       setIndex((i) => i + 1);
     }
   };
+
+  const finishCompletionTransition = useCallback(() => {
+    setCompletionPhase('restoring');
+    transitionTimerRef.current = window.setTimeout(() => {
+      setFinished(true);
+      setCompletionPhase('idle');
+    }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : RESTORE_MS);
+  }, []);
 
   const replay = () => {
     lockedRef.current = false;
@@ -241,6 +277,7 @@ function LevelGame() {
   // Leaving mid-level: costs a life only if at least one question was answered
   // and the attempt hasn't already been finalized (outcome set).
   const quitToMap = () => {
+    if (completionPhase !== 'idle') return;
     if (outcome === null) {
       clearAttempt(profileId);
       if (results.length > 0) {
@@ -290,9 +327,40 @@ function LevelGame() {
   }
 
   const answered = answeredId !== null;
+  const transitioning = completionPhase !== 'idle';
+  const transitionProgress = transitioning ? loadProgress(profileId) : null;
 
   return (
-    <main className="mx-auto min-h-full max-w-2xl px-4 pb-16">
+    <main className="relative mx-auto min-h-full max-w-2xl overflow-hidden px-4 pb-16">
+      {transitioning && transitionProgress && (
+        <div
+          className="completion-map-reveal absolute inset-x-0 top-0 z-0 min-h-full bg-cream/80 px-4 pt-3"
+          aria-label={`${ui.level} ${level.id + 1}`}
+          aria-live="polite"
+        >
+          <div
+            className="completion-map-track"
+            style={{ transform: `translateY(calc(42vh - ${90 + (level.id - 1) * 132}px))` }}
+          >
+            <GameMap
+              levels={levels}
+              progress={transitionProgress}
+              pawnLevel={transitionPawnLevel}
+              pawnColor={profile.color}
+              levelLabel={ui.level}
+              lockedLabel={ui.locked}
+              completedLabel={ui.completedLabel}
+              interactive={false}
+              onSelect={() => undefined}
+              onPawnMoveComplete={finishCompletionTransition}
+            />
+          </div>
+        </div>
+      )}
+      <div
+        className={`relative z-10 completion-quiz-shell completion-quiz-shell--${completionPhase} ${transitioning ? 'pointer-events-none select-none' : ''}`}
+        aria-hidden={transitioning}
+      >
       {showAbandonBanner && (
         <div className="-mx-4 mb-1 bg-berry px-4 py-2 text-center font-display text-sm font-bold text-white">
           {ui.lifeLostAbandon}
@@ -348,6 +416,7 @@ function LevelGame() {
             </Button>
           </>
         )}
+      </div>
       </div>
     </main>
   );

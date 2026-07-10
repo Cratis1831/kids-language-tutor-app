@@ -19,6 +19,8 @@ interface GameMapProps {
   levelLabel: string;
   lockedLabel: string;
   completedLabel: string;
+  interactive?: boolean;
+  onPawnMoveComplete?: () => void;
 }
 
 export function GameMap({
@@ -31,6 +33,8 @@ export function GameMap({
   levelLabel,
   lockedLabel,
   completedLabel,
+  interactive = true,
+  onPawnMoveComplete,
 }: GameMapProps) {
   const layout = useMemo(() => buildMapLayout(levels.length), [levels.length]);
   const pawnNode = layout.nodes[Math.min(pawnLevel, levels.length) - 1];
@@ -44,10 +48,14 @@ export function GameMap({
       prevPawnLevel.current = pawnLevel;
       setHopping(true);
       sfx.hop();
-      const timer = setTimeout(() => setHopping(false), 900);
+      const moveDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900;
+      const timer = setTimeout(() => {
+        setHopping(false);
+        onPawnMoveComplete?.();
+      }, moveDuration);
       return () => clearTimeout(timer);
     }
-  }, [pawnLevel]);
+  }, [pawnLevel, onPawnMoveComplete]);
 
   return (
     <div className="relative mx-auto w-full max-w-md" style={{ height: layout.height }}>
@@ -94,7 +102,7 @@ export function GameMap({
         return (
           <button
             key={level.id}
-            disabled={!playable}
+            disabled={!interactive || !playable}
             onClick={() => onSelect(level.id)}
             aria-label={
               completed
