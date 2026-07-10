@@ -78,6 +78,8 @@ export interface Progress {
   stars: LevelStars;
   /** Best points earned per completed level. */
   points: Record<number, number>;
+  /** All points ever earned; unlike the leaderboard score, this never resets. */
+  lifetimePoints: number;
   /** Remaining lives, in 0.5 steps, within (0, LIVES_MAX]. */
   lives: number;
 }

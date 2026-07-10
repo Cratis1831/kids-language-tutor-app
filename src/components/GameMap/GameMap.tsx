@@ -6,6 +6,7 @@ import { buildMapLayout } from './mapLayout';
 import { MapScenery } from './MapScenery';
 import { TierFlag } from './TierFlag';
 import { StarPawn } from '../ui/StarPawn';
+import { earnedRewardItems } from '../../data/rewards';
 
 interface GameMapProps {
   levels: Level[];
@@ -33,6 +34,7 @@ export function GameMap({
 }: GameMapProps) {
   const layout = useMemo(() => buildMapLayout(levels.length), [levels.length]);
   const pawnNode = layout.nodes[Math.min(pawnLevel, levels.length) - 1];
+  const rewardItems = earnedRewardItems(progress);
 
   // Play a little arc-hop (and boing) whenever the token moves to a new node.
   const [hopping, setHopping] = useState(false);
@@ -153,7 +155,7 @@ export function GameMap({
         >
           <div className={hopping ? 'pawn-hop' : 'pawn-idle'}>
             <div className="pawn-somersault">
-              <StarPawn size={52} color={pawnColor} characterId={pawnCharacterId} />
+              <StarPawn size={64} color={pawnColor} characterId={pawnCharacterId} items={rewardItems} />
             </div>
           </div>
         </div>

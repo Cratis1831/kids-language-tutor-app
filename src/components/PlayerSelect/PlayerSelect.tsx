@@ -7,6 +7,7 @@ import { useLocale } from '../../i18n/LocaleContext';
 import { LangToggle } from '../ui/LangToggle';
 import { SoundToggles } from '../ui/SoundToggles';
 import { StarPawn } from '../ui/StarPawn';
+import { earnedRewardItems } from '../../data/rewards';
 
 export function PlayerSelect() {
   const navigate = useNavigate();
@@ -55,6 +56,7 @@ export function PlayerSelect() {
       <div className="grid w-full max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2">
         {profiles.map((profile) => {
           const progress = loadProgress(profile.id);
+          const rewardItems = earnedRewardItems(progress);
           const points = totalPoints(progress);
           const stars = totalStars(progress);
           const isEditing = editingId === profile.id;
@@ -81,7 +83,7 @@ export function PlayerSelect() {
                     className="mb-4 flex h-28 w-28 items-center justify-center rounded-full"
                     style={{ backgroundColor: `${profile.color}22` }}
                   >
-                    <StarPawn size={84} color={profile.color} characterId={profile.characterId} label={profile.name} />
+                    <StarPawn size={96} color={profile.color} characterId={profile.characterId} label={profile.name} items={rewardItems} />
                   </div>
                   <input
                     autoFocus
@@ -160,7 +162,7 @@ export function PlayerSelect() {
                     className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full"
                     style={{ backgroundColor: `${profile.color}22` }}
                   >
-                    <StarPawn size={84} color={profile.color} characterId={profile.characterId} label={profile.name} />
+                    <StarPawn size={96} color={profile.color} characterId={profile.characterId} label={profile.name} items={rewardItems} />
                   </div>
                   <div className="font-display text-2xl font-bold text-ink">{profile.name}</div>
                   <div className="mt-2 flex items-center justify-center gap-4 text-sm font-semibold text-ink/60">

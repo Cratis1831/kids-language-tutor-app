@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import type { RewardItemId } from '../../data/rewards';
 import type { CharacterId } from '../../types';
 
 interface StarPawnProps {
@@ -6,14 +7,16 @@ interface StarPawnProps {
   color?: string;
   characterId?: CharacterId;
   label?: string;
+  items?: readonly RewardItemId[];
 }
 
 /**
  * The player's map token: a rounded star-shaped explorer with a friendly face.
  * Pure SVG so there are no emojis anywhere in the app.
  */
-export function StarPawn({ size = 56, color = 'var(--color-berry)', characterId = 'classic', label = 'Your explorer' }: StarPawnProps) {
+export function StarPawn({ size = 56, color = 'var(--color-berry)', characterId = 'classic', label = 'Your explorer', items = [] }: StarPawnProps) {
   const filterId = `pawn-shadow-${useId().replace(/:/g, '')}`;
+  const earned = new Set(items);
   return (
     <svg
       width={size}
@@ -27,6 +30,9 @@ export function StarPawn({ size = 56, color = 'var(--color-berry)', characterId 
           <feDropShadow dx="0" dy="3" stdDeviation="2" floodColor="#2b2140" floodOpacity="0.25" />
         </filter>
       </defs>
+      {earned.has('trail-cape') ? (
+        <path d="M30 39 Q15 54 22 83 Q36 78 49 68 L45 38 Z" fill="#6c4ab6" stroke="#2b2140" strokeWidth="3.5" strokeLinejoin="round" />
+      ) : null}
       {/* Chunky rounded star body */}
       <path
         d="M50 8
@@ -55,6 +61,12 @@ export function StarPawn({ size = 56, color = 'var(--color-berry)', characterId 
       {characterId === 'scholar' && <><path d="M28 31 L50 21 L72 31 L50 41Z" fill="#4f2f96" stroke="#2b2140" strokeWidth="3"/><path d="M68 32 V43" stroke="#ffc93c" strokeWidth="3" strokeLinecap="round"/><circle cx="68" cy="45" r="3" fill="#ffc93c"/></>}
       {characterId === 'butterfly' && <><path d="M26 48 C10 34 8 62 28 63" fill="#ffc93c" stroke="#2b2140" strokeWidth="3"/><path d="M74 48 C90 34 92 62 72 63" fill="#ffc93c" stroke="#2b2140" strokeWidth="3"/><circle cx="20" cy="52" r="3" fill="#ff5d8f"/><circle cx="80" cy="52" r="3" fill="#ff5d8f"/></>}
       {characterId === 'superstar' && <><path d="M29 42 Q37 34 45 42 L43 51 Q35 56 28 49Z" fill="#3478c9" stroke="#2b2140" strokeWidth="3"/><path d="M55 42 Q63 34 71 42 L72 49 Q65 56 57 51Z" fill="#3478c9" stroke="#2b2140" strokeWidth="3"/><path d="M44 44 H56" stroke="#2b2140" strokeWidth="3"/></>}
+      {earned.has('adventure-satchel') ? (
+        <g stroke="#2b2140" strokeWidth="3" strokeLinejoin="round"><path d="M34 34 Q63 50 69 69" fill="none" /><path d="M63 64 Q76 62 78 72 L76 84 Q66 86 60 79 Z" fill="#d29a6b" /><path d="M64 69 L76 70" /></g>
+      ) : null}
+      {earned.has('scout-scarf') ? (
+        <g stroke="#2b2140" strokeWidth="3" strokeLinejoin="round"><path d="M31 62 Q50 72 69 62 L65 72 Q50 80 35 72 Z" fill="#ff5d8f" /><path d="M52 71 L61 88 L50 83 L44 90 L44 72 Z" fill="#ff5d8f" /></g>
+      ) : null}
       {/* Eyes */}
       <circle cx="42" cy="46" r="5" fill="#2b2140" />
       <circle cx="58" cy="46" r="5" fill="#2b2140" />
@@ -71,6 +83,15 @@ export function StarPawn({ size = 56, color = 'var(--color-berry)', characterId 
       {/* Cheeks */}
       <circle cx="35" cy="55" r="3.5" fill="#fff" opacity="0.5" />
       <circle cx="65" cy="55" r="3.5" fill="#fff" opacity="0.5" />
+      {earned.has('sun-glasses') ? (
+        <g fill="#263b59" stroke="#2b2140" strokeWidth="2.5"><path d="M33 41 H48 L47 51 Q40 57 35 51 Z" /><path d="M52 41 H67 L65 51 Q60 57 53 51 Z" /><path d="M48 44 Q50 42 52 44" fill="none" /></g>
+      ) : null}
+      {earned.has('baseball-cap') ? (
+        <g stroke="#2b2140" strokeWidth="3.5" strokeLinejoin="round"><path d="M30 29 Q34 10 53 11 Q68 13 70 30 Z" fill="#ffc93c" /><path d="M46 29 Q66 25 79 32 Q67 38 48 35 Z" fill="#ffc93c" /><path d="M52 12 L50 28" fill="none" opacity="0.45" /></g>
+      ) : null}
+      {earned.has('rain-boots') ? (
+        <g fill="#2ec4b6" stroke="#2b2140" strokeWidth="3.5" strokeLinejoin="round"><path d="M29 72 L43 75 L41 88 Q32 94 24 87 L28 82 Z" /><path d="M57 75 L71 72 L72 82 L76 87 Q68 94 59 88 Z" /></g>
+      ) : null}
     </svg>
   );
 }

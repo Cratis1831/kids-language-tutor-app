@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadProgress, recordLevelResult, saveProgress } from './progress';
+import { loadProgress, recordLevelResult, resetProfileProgress, saveProgress } from './progress';
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -32,17 +32,35 @@ describe('progress scoring', () => {
     expect(progress.points).toEqual({ 1: 50, 5: 75, 10: 125 });
     expect(progress.unlockedLevel).toBe(11);
     expect(progress.lives).toBe(2.5);
-    expect(JSON.parse(localStorage.getItem('fla:progress:legacy') ?? '{}').version).toBe(2);
+    expect(progress.lifetimePoints).toBe(250);
+    expect(JSON.parse(localStorage.getItem('fla:progress:legacy') ?? '{}').version).toBe(3);
   });
 
   it('records the fixed reward for each level tier', () => {
-    saveProgress('player', { unlockedLevel: 1, stars: {}, points: {}, lives: 3 });
+    saveProgress('player', { unlockedLevel: 1, stars: {}, points: {}, lifetimePoints: 0, lives: 3 });
     expect(recordLevelResult('player', 1, 2, 100).progress.points[1]).toBe(50);
 
-    saveProgress('player', { unlockedLevel: 5, stars: {}, points: {}, lives: 3 });
+    saveProgress('player', { unlockedLevel: 5, stars: {}, points: {}, lifetimePoints: 50, lives: 3 });
     expect(recordLevelResult('player', 5, 2, 100).progress.points[5]).toBe(75);
 
-    saveProgress('player', { unlockedLevel: 10, stars: {}, points: {}, lives: 3 });
+    saveProgress('player', { unlockedLevel: 10, stars: {}, points: {}, lifetimePoints: 125, lives: 3 });
     expect(recordLevelResult('player', 10, 2, 100).progress.points[10]).toBe(125);
+  });
+
+  it('keeps lifetime points across a progress reset and does not double-award a recorded level', () => {
+    saveProgress('player', {
+      unlockedLevel: 1,
+      stars: {},
+      points: {},
+      lifetimePoints: 975,
+      lives: 3,
+    });
+    const first = recordLevelResult('player', 1, 2, 100).progress;
+    expect(first.lifetimePoints).toBe(1025);
+    const repeated = recordLevelResult('player', 1, 3, 100).progress;
+    expect(repeated.lifetimePoints).toBe(1025);
+    const reset = resetProfileProgress('player');
+    expect(reset.points).toEqual({});
+    expect(reset.lifetimePoints).toBe(1025);
   });
 });

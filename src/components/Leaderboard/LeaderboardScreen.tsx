@@ -6,6 +6,7 @@ import { loadProfiles } from '../../state/profiles';
 import { loadProgress, resetAllScores, totalPoints, totalStars } from '../../state/progress';
 import { sfx } from '../../audio/audio';
 import { StarPawn } from '../ui/StarPawn';
+import { earnedRewardItems, type RewardItemId } from '../../data/rewards';
 
 const MEDAL_COLORS = ['#ffc93c', '#c3c9dd', '#d29a6b'];
 
@@ -14,6 +15,7 @@ interface Entry {
   points: number;
   stars: number;
   levelsDone: number;
+  rewardItems: RewardItemId[];
 }
 
 function computeEntries(): Entry[] {
@@ -25,6 +27,7 @@ function computeEntries(): Entry[] {
         points: totalPoints(progress),
         stars: totalStars(progress),
         levelsDone: Object.keys(progress.stars).length,
+        rewardItems: earnedRewardItems(progress),
       };
     })
     .sort((a, b) => b.points - a.points);
@@ -97,7 +100,7 @@ export function LeaderboardScreen() {
               {i + 1}
             </span>
             <div className="shrink-0">
-              <StarPawn size={52} color={entry.profile.color} characterId={entry.profile.characterId} label={entry.profile.name} />
+              <StarPawn size={60} color={entry.profile.color} characterId={entry.profile.characterId} label={entry.profile.name} items={entry.rewardItems} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate font-display text-xl font-bold text-ink">

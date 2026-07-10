@@ -12,7 +12,7 @@ import { clearAttempt } from './attempt';
 // database can later replace the localStorage calls behind the same functions.
 
 const STORAGE_PREFIX = 'fla:progress:';
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 
 interface StoredProgress extends Progress {
   version: typeof STORAGE_VERSION;
@@ -23,7 +23,7 @@ function keyFor(profileId: string): string {
 }
 
 function emptyProgress(): Progress {
-  return { unlockedLevel: 1, stars: {}, points: {}, lives: LIVES_START };
+  return { unlockedLevel: 1, stars: {}, points: {}, lifetimePoints: 0, lives: LIVES_START };
 }
 
 /** Clamp lives into [0.5, LIVES_MAX], rounded to the nearest half. */
@@ -54,6 +54,11 @@ export function loadProgress(profileId: string): Progress {
       unlockedLevel: Math.max(1, parsed.unlockedLevel ?? 1),
       stars: parsed.stars ?? {},
       points,
+      // Version 2 introduced normalized scores. Seed the lifetime counter once
+      // from those scores; version 1 saves use the normalized migration above.
+      lifetimePoints: parsed.version === STORAGE_VERSION && Number.isFinite(parsed.lifetimePoints)
+        ? Math.max(0, parsed.lifetimePoints as number)
+        : Object.values(points).reduce((sum, value) => sum + value, 0),
       lives,
     };
     if (parsed.version !== STORAGE_VERSION) saveProgress(profileId, progress);
@@ -100,7 +105,8 @@ export function resetAllScores(profileIds: string[]): void {
  * freshly reset profile can't be penalized for an old, abandoned attempt.
  */
 export function resetProfileProgress(profileId: string): Progress {
-  const fresh = emptyProgress();
+  const lifetimePoints = loadProgress(profileId).lifetimePoints;
+  const fresh = { ...emptyProgress(), lifetimePoints };
   saveProgress(profileId, fresh);
   clearAttempt(profileId);
   return fresh;
@@ -160,6 +166,7 @@ export function recordLevelResult(
     unlockedLevel: nextUnlocked,
     stars: { ...progress.stars, [levelId]: bestStars },
     points: { ...progress.points, [levelId]: bestPoints },
+    lifetimePoints: progress.lifetimePoints + (progress.points[levelId] === undefined ? bestPoints : 0),
     lives,
   };
   saveProgress(profileId, updated);
