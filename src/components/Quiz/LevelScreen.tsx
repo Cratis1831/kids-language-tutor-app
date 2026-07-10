@@ -347,6 +347,7 @@ function LevelGame() {
               progress={transitionProgress}
               pawnLevel={transitionPawnLevel}
               pawnColor={profile.color}
+              pawnCharacterId={profile.characterId}
               levelLabel={ui.level}
               lockedLabel={ui.locked}
               completedLabel={ui.completedLabel}
