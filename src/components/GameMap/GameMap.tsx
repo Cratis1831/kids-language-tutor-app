@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lock, Star } from 'lucide-react';
-import type { Level, Progress } from '../../types';
+import type { CharacterId, Level, Progress } from '../../types';
 import { sfx } from '../../audio/audio';
 import { buildMapLayout } from './mapLayout';
 import { MapScenery } from './MapScenery';
@@ -13,6 +13,7 @@ interface GameMapProps {
   /** Which node the player token sits on (lets the map animate a "hop"). */
   pawnLevel: number;
   pawnColor: string;
+  pawnCharacterId: CharacterId;
   onSelect: (levelId: number) => void;
   levelLabel: string;
   lockedLabel: string;
@@ -24,6 +25,7 @@ export function GameMap({
   progress,
   pawnLevel,
   pawnColor,
+  pawnCharacterId,
   onSelect,
   levelLabel,
   lockedLabel,
@@ -151,7 +153,7 @@ export function GameMap({
         >
           <div className={hopping ? 'pawn-hop' : 'pawn-idle'}>
             <div className="pawn-somersault">
-              <StarPawn size={52} color={pawnColor} />
+              <StarPawn size={52} color={pawnColor} characterId={pawnCharacterId} />
             </div>
           </div>
         </div>

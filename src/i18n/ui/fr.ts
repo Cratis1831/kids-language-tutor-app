@@ -32,6 +32,9 @@ export interface UiStrings {
   points: string;
   perfect: string;
   editName: string;
+  customizeCharacter: string;
+  chooseCharacter: string;
+  chooseColor: string;
   save: string;
   englishMenus: string;
   playToEarn: string;
@@ -104,6 +107,9 @@ export const fr: UiStrings = {
   points: 'points',
   perfect: 'Parfait !',
   editName: 'Modifier le nom',
+  customizeCharacter: 'Personnaliser le personnage',
+  chooseCharacter: 'Choisis ton personnage',
+  chooseColor: 'Choisis sa couleur',
   save: 'Enregistrer',
   englishMenus: 'Menus en anglais',
   playToEarn: 'Joue pour gagner des points !',

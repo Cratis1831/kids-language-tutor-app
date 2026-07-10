@@ -50,9 +50,23 @@ export interface Level {
 export interface Profile {
   id: string;
   name: string;
+  /** The code-native explorer design selected by this player. */
+  characterId: CharacterId;
   /** A palette token value used to colour this player's avatar. */
   color: string;
 }
+
+export type CharacterId =
+  | 'classic'
+  | 'sprout'
+  | 'crown'
+  | 'wizard'
+  | 'pirate'
+  | 'astronaut'
+  | 'artist'
+  | 'scholar'
+  | 'butterfly'
+  | 'superstar';
 
 /** Per-level result: number of stars earned (0–3). */
 export type LevelStars = Record<number, number>;

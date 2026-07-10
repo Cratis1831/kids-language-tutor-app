@@ -97,7 +97,7 @@ export function LeaderboardScreen() {
               {i + 1}
             </span>
             <div className="shrink-0">
-              <StarPawn size={52} color={entry.profile.color} />
+              <StarPawn size={52} color={entry.profile.color} characterId={entry.profile.characterId} label={entry.profile.name} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate font-display text-xl font-bold text-ink">

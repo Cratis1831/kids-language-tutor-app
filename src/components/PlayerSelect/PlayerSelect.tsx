@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Pencil, Star, Trophy } from 'lucide-react';
-import { loadProfiles, renameProfile } from '../../state/profiles';
+import { CHARACTER_COLORS, CHARACTER_IDS, loadProfiles, renameProfile, updateProfileAppearance } from '../../state/profiles';
 import { loadProgress, totalPoints, totalStars } from '../../state/progress';
 import { useLocale } from '../../i18n/LocaleContext';
 import { LangToggle } from '../ui/LangToggle';
@@ -10,7 +10,7 @@ import { StarPawn } from '../ui/StarPawn';
 
 export function PlayerSelect() {
   const navigate = useNavigate();
-  const { ui } = useLocale();
+  const { ui, uiLocale } = useLocale();
   const [profiles, setProfiles] = useState(loadProfiles);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -24,6 +24,17 @@ export function PlayerSelect() {
     if (!editingId) return;
     setProfiles(renameProfile(editingId, draftName));
     setEditingId(null);
+  };
+
+  const characterNames = uiLocale === 'fr'
+    ? ['Classique', 'Pousse', 'Couronne', 'Magicien', 'Pirate', 'Astronaute', 'Artiste', 'Diplômé', 'Papillon', 'Super étoile']
+    : ['Classic', 'Sprout', 'Crown', 'Wizard', 'Pirate', 'Astronaut', 'Artist', 'Scholar', 'Butterfly', 'Superstar'];
+  const colorNames = uiLocale === 'fr'
+    ? ['Lagon', 'Baie', 'Raisin', 'Océan', 'Mandarine', 'Soleil', 'Feuille', 'Fruit du dragon']
+    : CHARACTER_COLORS.map(({ name }) => name);
+
+  const updateAppearance = (id: string, characterId: typeof CHARACTER_IDS[number], color: string) => {
+    setProfiles(updateProfileAppearance(id, characterId, color));
   };
 
   return (
@@ -56,7 +67,7 @@ export function PlayerSelect() {
                 <button
                   type="button"
                   onClick={() => startEdit(profile.id, profile.name)}
-                  aria-label={`${ui.editName}: ${profile.name}`}
+                  aria-label={`${ui.customizeCharacter}: ${profile.name}`}
                   className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center
                              rounded-full bg-cream-deep text-ink/60 transition-colors hover:text-grape"
                 >
@@ -70,7 +81,7 @@ export function PlayerSelect() {
                     className="mb-4 flex h-28 w-28 items-center justify-center rounded-full"
                     style={{ backgroundColor: `${profile.color}22` }}
                   >
-                    <StarPawn size={84} color={profile.color} />
+                    <StarPawn size={84} color={profile.color} characterId={profile.characterId} label={profile.name} />
                   </div>
                   <input
                     autoFocus
@@ -85,6 +96,49 @@ export function PlayerSelect() {
                     className="w-full max-w-52 rounded-2xl border-3 border-grape bg-cream px-3 py-2
                                text-center font-display text-xl font-bold text-ink outline-none"
                   />
+                  <fieldset className="mt-5 w-full border-0 p-0">
+                    <legend className="mb-2 font-display text-base font-bold text-ink">{ui.chooseCharacter}</legend>
+                    <div className="grid grid-cols-5 gap-2">
+                      {CHARACTER_IDS.map((characterId, index) => {
+                        const selected = profile.characterId === characterId;
+                        return (
+                          <button
+                            key={characterId}
+                            type="button"
+                            aria-label={characterNames[index]}
+                            aria-pressed={selected}
+                            title={characterNames[index]}
+                            onClick={() => updateAppearance(profile.id, characterId, profile.color)}
+                            className={`flex aspect-square items-center justify-center rounded-xl border-3 bg-cream transition-transform hover:-translate-y-0.5 ${selected ? 'border-grape shadow-(--shadow-nub)' : 'border-transparent'}`}
+                          >
+                            <StarPawn size={42} color={profile.color} characterId={characterId} label={characterNames[index]} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                  <fieldset className="mt-5 w-full border-0 p-0">
+                    <legend className="mb-2 font-display text-base font-bold text-ink">{ui.chooseColor}</legend>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {CHARACTER_COLORS.map(({ value }, index) => {
+                        const selected = profile.color.toLowerCase() === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-label={colorNames[index]}
+                            aria-pressed={selected}
+                            title={colorNames[index]}
+                            onClick={() => updateAppearance(profile.id, profile.characterId, value)}
+                            className={`relative h-11 w-11 rounded-full border-4 transition-transform hover:scale-110 ${selected ? 'border-grape' : 'border-white shadow-(--shadow-nub)'}`}
+                            style={{ backgroundColor: value }}
+                          >
+                            {selected ? <Check className="absolute inset-0 m-auto text-white drop-shadow-sm" size={22} strokeWidth={4} aria-hidden="true" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
                   <button
                     type="button"
                     onClick={saveEdit}
@@ -106,7 +160,7 @@ export function PlayerSelect() {
                     className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full"
                     style={{ backgroundColor: `${profile.color}22` }}
                   >
-                    <StarPawn size={84} color={profile.color} />
+                    <StarPawn size={84} color={profile.color} characterId={profile.characterId} label={profile.name} />
                   </div>
                   <div className="font-display text-2xl font-bold text-ink">{profile.name}</div>
                   <div className="mt-2 flex items-center justify-center gap-4 text-sm font-semibold text-ink/60">

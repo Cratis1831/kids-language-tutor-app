@@ -197,6 +197,7 @@ export function GameMapScreen() {
             progress={progress}
             pawnLevel={pawnLevel}
             pawnColor={profile.color}
+            pawnCharacterId={profile.characterId}
             levelLabel={ui.level}
             lockedLabel={ui.locked}
             completedLabel={ui.completedLabel}
